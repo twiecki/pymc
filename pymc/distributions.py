@@ -1426,10 +1426,10 @@ def half_normal_like(x, tau):
 
     """
 
-    return flib.hnormal(x, tau)
+    return normal_like(x, 0, tau) + np.log(2)
 
-half_normal_grad_like = {'value'   : flib.hnormal_gradx,
-                 'tau' : flib.hnormal_gradtau}
+half_normal_grad_like = {'value'   : lambda x, tau: normal_grad_like['value'](x,0, tau),
+                         'tau'     : lambda x, tau: normal_grad_like['tau'](x, 0,tau)}
 
 # Hypergeometric----------------------------------------------
 def rhypergeometric(n, m, N, size=None):
@@ -1515,12 +1515,17 @@ def inverse_gamma_like(x, alpha, beta):
        :math:`E(X)=\frac{\beta}{\alpha-1}`  for :math:`\alpha > 1`
        :math:`Var(X)=\frac{\beta^2}{(\alpha-1)^2(\alpha)}`  for :math:`\alpha > 2`
     """
+    gl_a = gammaln(alpha)
 
-    return flib.igamma(x, alpha, beta)
+    return np.sum(evaluate('- gl_a + alpha*log(beta) - (alpha+1)*log(x) - beta/x'))
 
-inverse_gamma_grad_like = {'value' : flib.igamma_grad_x,
-             'alpha' : flib.igamma_grad_alpha,
-             'beta' : flib.igamma_grad_beta}
+def igamma_grad_alpha(x, alpha, beta):
+    psi_a = psi(alpha)
+    return sum_to_shape(evaluate('-log(x) - psi_a + log(beta)'), np.shape(alpha))
+
+inverse_gamma_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('-(alpha + 1)/x + beta/x**2'), np.shape(x)),
+                           'alpha' : igamma_grad_alpha,
+                           'beta'  : lambda x, alpha, beta: sum_to_shape(evaluate('alpha/beta - 1/x'), np.shape(beta))}
 
 # Inverse Wishart---------------------------------------------------
 
@@ -1664,11 +1669,11 @@ def laplace_like(x, mu, tau):
       - :math:`Var(X) = \frac{2}{\tau^2}`
     """
 
-    return flib.gamma(np.abs(x-mu), 1, tau) - np.log(2)
+    return gamma_like(np.abs(x-mu), 1, tau) - np.log(2)
 
-laplace_grad_like = {'value'   : lambda x, mu, tau: flib.gamma_grad_x(np.abs(x- mu), 1, tau) * np.sign(x - mu),
-                     'mu'  : lambda x, mu, tau: -flib.gamma_grad_x(np.abs(x- mu), 1, tau) * np.sign(x - mu),
-                     'tau' : lambda x, mu, tau: flib.gamma_grad_beta(np.abs(x- mu), 1, tau)}
+laplace_grad_like = {'value': lambda x, mu, tau:  gamma_grad_like['value'](np.abs(x- mu), 1, tau) * np.sign(x - mu),
+                     'mu'   : lambda x, mu, tau: -gamma_grad_like['value'](np.abs(x- mu), 1, tau) * np.sign(x - mu),
+                     'tau'  : lambda x, mu, tau:  gamma_grad_like['beta' ](np.abs(x- mu), 1, tau)}
 
 
 dexponential_like = laplace_like
@@ -1762,11 +1767,11 @@ def lognormal_like(x, mu, tau):
        :math:`E(X)=e^{\mu+\frac{1}{2\tau}}`
        :math:`Var(X)=(e^{1/\tau}-1)e^{2\mu+\frac{1}{\tau}}`
     """
-    return flib.lognormal(x,mu,tau)
+    return np.sum(evaluate('.5 * (log(tau) - log(2*pi)) - .5*tau*(log(x)-mu)**2 - log(x)'))
 
-lognormal_grad_like = {'value'   : flib.lognormal_gradx,
-                       'mu'  : flib.lognormal_gradmu,
-                       'tau' : flib.lognormal_gradtau}
+lognormal_grad_like = {'value': lambda x, mu , tau: sum_to_shape(evaluate('-(1 + (log(x) - mu) * tau)/x'), np.shape(x)),
+                       'mu'   : lambda x, mu , tau: sum_to_shape(evaluate('(log(x) - mu) * tau'), np.shape(x)),
+                       'tau'  : lambda x, mu , tau: sum_to_shape(evaluate('1 /(2 * tau) - (log(x) - mu)**2/2'), np.shape(x))}
 
 
 # Multinomial----------------------------------------------
@@ -2733,11 +2738,11 @@ def uniform_like(x,lower, upper):
       - `upper` : Upper limit (upper > lower).
     """
 
-    return flib.uniform_like(x, lower, upper)
+    return np.sum(evaluate('where(x > lower & x < upper, 1/(upper-lower), -Inf)'))
 
-uniform_grad_like = {'value' : flib.uniform_grad_x,
-             'lower' : flib.uniform_grad_l,
-             'upper' : flib.uniform_grad_u}
+uniform_grad_like = {'value' : lambda x, lower, upper: zeros(np.shape(x)),
+                     'lower' : lambda x, lower, upper: sum_to_shape(evaluate('where(x > lower & x < upper, 1/(upper-lower), 0)'), np.shape(lower)),
+                     'upper' : lambda x, lower, upper: sum_to_shape(evaluate('where(x > lower & x < upper, 1/(lower-upper), 0)'), np.shape(lower))}
 
 # Weibull--------------------------------------------------
 @randomwrap
