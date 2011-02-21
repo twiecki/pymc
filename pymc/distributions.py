@@ -663,6 +663,9 @@ def bernoulli_like(x, p):
 
     """
 
+    if not (constrained(p, 0, 1 , allow_equal = True) and 
+            constrained(x,0,1, allow_equal = True)):
+        return -np.Inf
     return np.sum(np.log(np.where(x, p, 1-p)))
 
 bernoulli_grad_like = {'p' : lambda x, p: sum_to_shape(np.where(x, 1.0/p, -1.0/(1-p)), np.shape(p))}
