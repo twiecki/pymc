@@ -1768,6 +1768,10 @@ def lognormal_like(x, mu, tau):
        :math:`E(X)=e^{\mu+\frac{1}{2\tau}}`
        :math:`Var(X)=(e^{1/\tau}-1)e^{2\mu+\frac{1}{\tau}}`
     """
+    if not (constrained (x, 0.) and 
+            constrained(mu, 0.) and 
+            constrained(tau, 0.)):
+        return -np.Inf
     return np.sum(evaluate('.5 * (log(tau) - log(2*pi)) - .5*tau*(log(x)-mu)**2 - log(x)'))
 
 lognormal_grad_like = {'value': lambda x, mu , tau: sum_to_shape(evaluate('-(1 + (log(x) - mu) * tau)/x'), np.shape(x)),
@@ -2618,7 +2622,7 @@ def t_expval(nu):
 def t_grad_nu(x, nu):
     psi1 = psi((nu + 1)/2.0) 
     psi2 = psi(nu/2.0)
-    return sum_to_shape(evaluate('psi1 * .5 - .5/nu - psi2 *.5  - .5 * log(1 + x**2/nu) + ((nu + 1)/2) * x**2/(nu**2+x**2*nu)'), np.sahpe(nu))
+    return sum_to_shape(evaluate('psi1 * .5 - .5/nu - psi2 *.5  - .5 * log(1 + x**2/nu) + ((nu + 1)/2) * x**2/(nu**2+x**2*nu)'), np.shape(nu))
 
 t_grad_like = {'value'  : lambda x, nu : sum_to_shape(evaluate('-(nu + 1) * x / ( nu + x**2)'), np.shape(x)),
                'nu'     : t_grad_nu}
@@ -2675,9 +2679,9 @@ def noncentral_t_grad_nu( x, mu, lam, nu) :
         "psi1* .5 - .5/nu - psi2 *.5 - .5 * log(1.0 + lam * (x-mu)**2/nu) + ((nu + 1.0)/2.0) * lam * (x-mu)**2/(nu**2+lam * (x-mu)**2*nu)"),
                         np.shape(nu))
 
-noncentral_t_grad_like = {'value'   : lambda x, mu, lam, nu : sum_to_shape(evaluate("-(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)")),
-                          'mu'      : lambda x, mu, lam, nu : sum_to_shape(evaluate("(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)")),
-                          'lam'     : lambda x, mu, lam, nu : sum_to_shape(evaluate(".5/lam - (nu + 1.0)/2.0 * (x-mu)**2 / ( nu + lam * (x-mu)**2)")), 
+noncentral_t_grad_like = {'value'   : lambda x, mu, lam, nu : sum_to_shape(evaluate("-(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)"), np.shape(x)),
+                          'mu'      : lambda x, mu, lam, nu : sum_to_shape(evaluate("(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)"), np.shape(mu)),
+                          'lam'     : lambda x, mu, lam, nu : sum_to_shape(evaluate(".5/lam - (nu + 1.0)/2.0 * (x-mu)**2 / ( nu + lam * (x-mu)**2)"), np.shape(lam)), 
                           'nu'      : noncentral_t_grad_nu}
 
 # DiscreteUniform--------------------------------------------------
