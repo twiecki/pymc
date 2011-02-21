@@ -482,7 +482,7 @@ class Deterministic(DeterministicBase):
     
     
     def broadcast_operation_jacobian(self, variable, jacobian, gradient):
-        return calc_utils.sum_to_shape(id(variable), id(self), jacobian * gradient, shape(variable.value))
+        return calc_utils.sum_to_shape(jacobian * gradient, shape(variable.value))
 
     def accumulation_operation_jacobian(self, variable, jacobian, gradient):   
         for i in range(ndim(jacobian)):

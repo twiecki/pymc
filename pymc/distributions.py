@@ -38,6 +38,9 @@ import itertools
 import pdb
 import utils
 import warnings
+from numexpr import evaluate
+from calc_utils import sum_to_shape
+from scipy.special import gammaln, psi
 
 def poiscdf(a, x):
     x = np.atleast_1d(x)
@@ -490,12 +493,12 @@ def standardize(x, loc=0, scale=1):
 # = vectorize causes memory leaks. =
 # ==================================
 # @Vectorize
-def gammaln(x):
-    """
-    Logarithm of the Gamma function
-    """
+#def gammaln(x):
+"""
+Logarithm of the Gamma function
+"""
 
-    return flib.gamfun(x)
+#    return flib.gamfun(x)
 
 def expand_triangular(X,k):
     """
@@ -657,9 +660,9 @@ def bernoulli_like(x, p):
 
     """
 
-    return flib.bernoulli(x, p)
+    return np.sum(np.log(np.where(x, p, 1-p)))
 
-bernoulli_grad_like = {'p' : flib.bern_grad_p}
+bernoulli_grad_like = {'p' : lambda x, p: sum_to_shape(np.where(x, 1.0/p, -1.0/(1-p)), np.shape(p))}
 
 # Beta----------------------------------------------
 @randomwrap
@@ -712,11 +715,26 @@ def beta_like(x, alpha, beta):
     #     constrain(x, 0, 1, allow_equal=True)
     # except ZeroProbability:
     #     return -np.Inf
-    return flib.beta_like(x, alpha, beta)
+    
+    gl_ab = gammaln(alpha+beta)
+    gl_a = gammaln(alpha)
+    gl_b = gammaln(beta) 
+    
+    return np.sum(evaluate('gl_ab - gl_a - gl_b + (alpha- 1)*log(x) + (beta-1)*log(1-x)'))
 
-beta_grad_like = {'value' : flib.beta_grad_x,
-                  'alpha' : flib.beta_grad_a,
-                  'beta' : flib.beta_grad_b}
+def beta_grad_alpha(x, alpha, beta):
+    psi_ab = psi(alpha + beta)
+    psi_a = psi(alpha)
+    return sum_to_shape(evaluate('log(x) - psi_a + psi_ab'), np.shape(alpha))
+
+def beta_grad_beta(x, alpha, beta):
+    psi_ab = psi(alpha + beta)
+    psi_b = psi(beta)
+    return sum_to_shape(evaluate('log(1 - x) - psi_b + psi_ab'), np.shape(alpha))
+
+beta_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('(alpha - 1)/x - (beta - 1)/(1 - x)'), np.shape(x)),
+                  'alpha' : beta_grad_alpha,
+                  'beta'  : beta_grad_beta}
 
 
 # Binomial----------------------------------------------
@@ -759,11 +777,13 @@ def binomial_like(x, n, p):
        - :math:`E(X)=np`
        - :math:`Var(X)=np(1-p)`
     """
+    fn = flib.factln(n)
+    fx = flib.factln(x)
+    fnx = flib.factln(n-x)
+    return np.sum(evaluate('x*log(p) + (n-x)*log(1-p) +fn-fx-fnx'))
 
-    return flib.binomial(x,n,p)
 
-
-binomial_grad_like = {'p' : flib.binomial_gp}
+binomial_grad_like = {'p' : lambda x,n,p : sum_to_shape(evaluate('x/p - (n-x)/(1-p)'), np.shape(p))}
 
 # Beta----------------------------------------------
 @randomwrap
@@ -813,10 +833,33 @@ def betabin_like(x, alpha, beta, n):
       - :math:`Var(X)=n\frac{\alpha \beta}{(\alpha+\beta)^2(\alpha+\beta+1)}`
 
     """
-    return flib.betabin_like(x, alpha, beta, n)
+    gml_ab = gammaln(alpha+beta)
+    gml_a = gammaln(alpha)
+    gml_b = gammaln(beta)
+    gml_n1 = gammaln(n+1)
+    gml_x1 = gammaln(x+1)
+    gml_nx1 = gammaln(n-x +1)
+    gml_ax = gammaln(alpha+x)
+    gml_nbx = gammaln(n+beta-x)
+    gml_nab = gammaln(beta+alpha+n)
+    
+    return np.sum(evaluate('gml_ab - gml_b - gml_b + gml_n1 - gml_x1 - gml_nx1 + gml_ax + gml_nbx - gml_nab'))
 
-betabin_grad_like = {'alpha' : flib.betabin_ga,
-                 'beta' : flib.betabin_gb}
+def betabin_grad_like_alpha(x, alpha, beta,n):
+    psi_ab =psi(alpha+beta)
+    psi_a = psi(alpha)
+    psi_ax = psi(alpha+x)
+    psi_abn = psi(alpha+beta+n)
+    return  sum_to_shape(evaluate('psi_ab-psi_a + psi_ax -psi_abn'), np.shape(alpha))
+
+def betabin_grad_like_alpha(x, alpha, beta,n):
+    psi_ab = psi(alpha+beta)
+    psi_nbx = psi(n + beta - x)
+    psi_abn = psi(alpha+beta+n)
+    return  sum_to_shape(evaluate('psi_ab+ psi_nbx - psi_abn'), np.shape(beta))
+
+betabin_grad_like = {'alpha' : betabin_grad_like_alpha,
+                     'beta'  : betabin_grad_like_alpha}
 
 # Categorical----------------------------------------------
 # Note that because categorical elements are not ordinal, there
@@ -893,11 +936,11 @@ def cauchy_like(x, alpha, beta):
        - Mode and median are at alpha.
     """
 
-    return flib.cauchy(x,alpha,beta)
+    return np.sum(evaluate('-log(beta) -  log( 1 + ((x-alpha) / beta) ** 2 )'))
 
-cauchy_grad_like = {'value' : flib.cauchy_grad_x,
-                 'alpha' : flib.cauchy_grad_a,
-                 'beta' : flib.cauchy_grad_b}
+cauchy_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('- 2 * (x - alpha)/(beta**2 + (x - alpha)**2)'), np.shape(x)),
+                    'alpha' : lambda x, alpha, beta: sum_to_shape(evaluate('2 * (x - alpha)/(beta**2 + (x-alpha)**2)'), np.shape(alpha)),
+                    'beta'  : lambda x, alpha, beta: sum_to_shape(evaluate('-1/beta + 2 * (x-alpha)**2/(beta**3 *(1 +(x-alpha)**2/beta**2))'), np.shape(beta))}
 
 # Chi square----------------------------------------------
 @randomwrap
@@ -938,13 +981,11 @@ def chi2_like(x, nu):
 
     """
 
-    return flib.gamma(x, 0.5*nu, 1./2)
+    return gamma_like(x, 0.5*nu, 1./2)
 
-chi2_grad_like = {'value'  : lambda x, nu : flib.gamma_grad_x    (x, 0.5* nu, 1./2),
-                  'nu' : lambda x, nu : flib.gamma_grad_alpha(x, 0.5* nu, 1./2) * .5}
+chi2_grad_like = {'value'  : lambda x, nu : gamma_grad_like['value'](x, 0.5* nu, 1./2),
+                  'nu'     : lambda x, nu : gamma_grad_like['alpha'](x, 0.5* nu, 1./2) * .5}
 
-#chi2_grad_like = {'x'  : lambda x, nu : (nu / 2 - 1) / x -.5,
-#                  'nu' : flib.chi2_grad_nu }
 
 # Degenerate---------------------------------------------
 @randomwrap
@@ -1089,10 +1130,10 @@ def exponential_like(x, beta):
       - :math:`Var(X) = \beta^2`
     """
 
-    return flib.gamma(x, 1, beta)
+    return gamma_like(x, 1, beta)
 
-exponential_grad_like = {'value' : lambda x, beta : flib.gamma_grad_x(x, 1.0, beta),
-                         'beta' : lambda x, beta : flib.gamma_grad_beta(x, 1.0, beta)}
+exponential_grad_like = {'value' : lambda x, beta : gamma_grad_like['value'](x, 1.0, beta),
+                         'beta'  : lambda x, beta : gamma_grad_like['beta' ](x, 1.0, beta)}
 
 # Exponentiated Weibull-----------------------------------
 @randomwrap
@@ -1208,13 +1249,17 @@ def gamma_like(x, alpha, beta):
        - :math:`Var(X) = \frac{\alpha}{\beta^2}`
 
     """
+    gla = gammaln(alpha)
+    return np.sum(evaluate('-gla + alpha*log(beta) + where(alpha == 1.0,0, (alpha - 1.0)*log(x)) - beta*x'))
 
-    return flib.gamma(x, alpha, beta)
 
+def gamma_grad_alpha(x, alpha, beta): 
+    psi_alpha = psi(alpha)
+    return sum_to_shape(evaluate('-psi_alpha + log(x) + log(beta)'), np.shape(alpha))
 
-gamma_grad_like = {'value'     : flib.gamma_grad_x,
-                   'alpha' : flib.gamma_grad_alpha,
-                   'beta'  : flib.gamma_grad_beta}
+gamma_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('(alpha - 1)/x - beta'), np.shape(x)),
+                   'alpha' : gamma_grad_alpha,
+                   'beta'  : lambda x, alpha, beta: sum_to_shape(evaluate('-x + alpha/beta'), np.shape(beta))}
 
 # GEV Generalized Extreme Value ------------------------
 # Modify parameterization -> Hosking (kappa, xi, alpha)
@@ -1296,10 +1341,12 @@ def geometric_like(x, p):
       - :math:`Var(X)=\frac{1-p}{p^2}`
 
     """
+    if np.any(x < 1) or np.any(p <0) or np.any(p>1):
+        return -np.Inf 
+    
+    return np.sum( evaluate('log(p) + (x-1)* log(1-p)'))
 
-    return flib.geometric(x, p)
-
-geometric_grad_like = {'p' : flib.geometric_gp}
+geometric_grad_like = {'p' : lambda x,p: sum_to_shape(evaluate('-(x - 1)/(1 - p) + 1/p'), np.shape(p))}
 
 # Half Cauchy----------------------------------------------
 @randomwrap
@@ -1341,7 +1388,7 @@ def half_cauchy_like(x, alpha, beta):
 
     x = np.atleast_1d(x)
     if sum(x<0): return -inf
-    return flib.cauchy(x,alpha,beta) + len(x)*log(2)
+    return cauchy_like(x,alpha,beta) + len(x)*np.log(2)
 
 # Half-normal----------------------------------------------
 @randomwrap
@@ -2119,19 +2166,11 @@ def normal_like(x, mu, tau):
     # except ZeroProbability:
     #     return -np.Inf
 
-    return flib.normal(x, mu, tau)
+    return np.sum(evaluate('- 0.5 * tau * (x-mu)**2 + 0.5*log(0.5*tau/pi)'))
 
-def t_normal_grad_x(x, mu, tau):
-    return flib.normal_grad_x(x,mu, tau)
-
-def t_normal_grad_mu(x, mu, tau):
-    return flib.normal_grad_mu(x,mu, tau)
-def t_normal_grad_tau(x, mu, tau):
-    return flib.normal_grad_tau(x,mu, tau)
-
-normal_grad_like = {'value' : t_normal_grad_x,
-             'mu' : t_normal_grad_mu,
-             'tau' : t_normal_grad_tau}
+normal_grad_like = {'value' : lambda x,mu, tau: sum_to_shape(evaluate('-(x - mu) * tau'), np.shape(x)),
+                    'mu'    : lambda x,mu, tau: sum_to_shape(evaluate('(x - mu) * tau'), np.shape(mu)),
+                    'tau'   : lambda x,mu, tau: sum_to_shape(evaluate('1.0 / (2 * tau) - .5 * (x - mu)**2'), np.shape(tau))}
 
 #normal_grad_like = {'x' : flib.normal_grad_x,
 #             'mu' : flib.normal_grad_mu,
