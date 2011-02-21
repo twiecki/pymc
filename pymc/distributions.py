@@ -2756,8 +2756,8 @@ def uniform_like(x,lower, upper):
     return np.sum(evaluate('where((x > lower) & (x < upper), 1/(upper-lower), -inf)'))
 
 uniform_grad_like = {'value' : lambda x, lower, upper: np.zeros(np.shape(x)),
-                     'lower' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), 1/(upper-lower), 0)'), np.shape(lower)),
-                     'upper' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), 1/(lower-upper), 0)'), np.shape(lower))}
+                     'lower' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), 1/(upper-lower)**2, 0)'), np.shape(lower)),
+                     'upper' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), -1/(upper-lower)**2, 0)'), np.shape(lower))}
 
 # Weibull--------------------------------------------------
 @randomwrap

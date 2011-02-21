@@ -332,6 +332,7 @@ class test_gradients(TestCase):
         check_gradients(poisson)
         
         u = Uniform('u', lower = a, upper = b)
+        
         check_gradients(u)
         
         negative_binomial = NegativeBinomial('negative_binomial', mu = c, alpha = d )

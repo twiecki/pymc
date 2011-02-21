@@ -306,7 +306,7 @@ class test_arlognormal(TestCase):
 
 class test_bernoulli(TestCase):
     def test_consistency(self):
-        N = 5000
+        N = 20000
         parameters = {'p':.6}
         samples = []
         for i in range(N):
@@ -731,7 +731,7 @@ class test_multinomial(TestCase):
 class test_multivariate_hypergeometric(TestCase):
     def test_random(self):
         m = [10,15]
-        N = 200
+        N = 2000
         n = 6
         r = rmultivariate_hypergeometric(n, m, N)
         assert_array_almost_equal(r.mean(0), multivariate_hypergeometric_expval(n,m),1)
