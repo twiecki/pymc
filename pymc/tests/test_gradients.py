@@ -303,6 +303,9 @@ class test_gradients(TestCase):
         t = T('t', nu = f)
         check_gradients(t)
         
+        nct = NoncentralT('noncentralt', mu = a, lam =c, nu = f)
+        check_gradients(nct)
+        
         
         half_normal = HalfNormal('half_normal', tau = e)
         check_gradients(half_normal)

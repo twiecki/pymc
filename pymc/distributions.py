@@ -471,14 +471,17 @@ def debugwrapper(func, name):
 # Utility functions
 #-------------------------------------------------------------
 
-def constrain(value, lower=-np.Inf, upper=np.Inf, allow_equal=False):
+def constrained(value, lower=-np.Inf, upper=np.Inf, allow_equal=False):
     """
     Apply interval constraint on stochastic value.
     """
-
-    ok = flib.constrain(value, lower, upper, allow_equal)
-    if ok == 0:
-        raise ZeroProbability
+    if allow_equal:
+        if np.any(evaluate('(value >= lower) & (value <= upper)')):
+            return True
+    else :
+        if np.any(evaluate('(value > lower) & (value < upper)')):
+            return True
+    return False
 
 def standardize(x, loc=0, scale=1):
     """
@@ -709,12 +712,10 @@ def beta_like(x, alpha, beta):
       - :math:`Var(X)=\frac{\alpha \beta}{(\alpha+\beta)^2(\alpha+\beta+1)}`
 
     """
-    # try:
-    #     constrain(alpha, lower=0, allow_equal=True)
-    #     constrain(beta, lower=0, allow_equal=True)
-    #     constrain(x, 0, 1, allow_equal=True)
-    # except ZeroProbability:
-    #     return -np.Inf
+    if not (constrained(alpha, lower=0, allow_equal=True) and 
+            constrained(beta, lower=0, allow_equal=True) and 
+            constrained(x, 0, 1, allow_equal=True)):
+        return -np.Inf
     
     gl_ab = gammaln(alpha+beta)
     gl_a = gammaln(alpha)
@@ -2166,10 +2167,8 @@ def normal_like(x, mu, tau):
        - :math:`Var(X) = 1/\tau`
 
     """
-    # try:
-    #     constrain(tau, lower=0)
-    # except ZeroProbability:
-    #     return -np.Inf
+    if not constrained(tau, lower=0):
+        return -np.Inf
 
     return np.sum(evaluate('- 0.5 * tau * (x-mu)**2 + 0.5*log(0.5*tau/pi)'))
 
@@ -2355,11 +2354,10 @@ def poisson_like(x,mu):
        - :math:`E(x)=\mu`
        - :math:`Var(x)=\mu`
     """
-    # try:
-    #     constrain(x, lower=0,allow_equal=True)
-    #     constrain(mu, lower=0,allow_equal=True)
-    # except ZeroProbability:
-    #     return -np.Inf
+    if not (constrained(x, lower=0,allow_equal=True) and 
+            constrained(mu, lower=0,allow_equal=True)):
+        return -np.Inf
+    
     return flib.poisson(x,mu)
 
 poisson_grad_like = {'mu' : flib.poisson_gmu}
@@ -2606,8 +2604,9 @@ def t_like(x, nu):
       - `nu` : Degrees of freedom.
 
     """
-    nu = np.asarray(nu)
-    return flib.t(x, nu)
+    gl1 = gammaln((nu+1.0)/2.0)
+    gl2 = gammaln(nu/2.0)
+    return np.sum (evaluate('gl1 -.5*log(nu * pi) - gl2 - (nu+1)/2 * log(1 + (x**2)/nu)'))
 
 def t_expval(nu):
     """t_expval(nu)
@@ -2615,7 +2614,16 @@ def t_expval(nu):
     Expectation of Student's t random variables.
     """
     return 0
-    
+
+def t_grad_nu(x, nu):
+    psi1 = psi((nu + 1)/2.0) 
+    psi2 = psi(nu/2.0)
+    return sum_to_shape(evaluate('psi1 * .5 - .5/nu - psi2 *.5  - .5 * log(1 + x**2/nu) + ((nu + 1)/2) * x**2/(nu**2+x**2*nu)'), np.sahpe(nu))
+
+t_grad_like = {'value'  : lambda x, nu : sum_to_shape(evaluate('-(nu + 1) * x / ( nu + x**2)'), np.shape(x)),
+               'nu'     : t_grad_nu}
+
+
 # Non-central Student's t-----------------------------------
 @randomwrap
 def rnoncentral_t(mu, lam, nu, size=None):
@@ -2645,10 +2653,9 @@ def noncentral_t_like(x, mu, lam, nu):
       - `nu` : Degrees of freedom.
 
     """
-    mu = np.asarray(mu)
-    lam = np.asarray(lam)
-    nu = np.asarray(nu)
-    return flib.nct(x, mu, lam, nu)
+    gl1 = gammaln((nu+1.0)/2.0)
+    gl2 = gammaln(nu/2.0)
+    return np.sum(evaluate("gl1 + .5 * log(lam / (nu * pi)) - gl2 - (nu+1.0)/2.0 * log(1.0 + lam *(x - mu)**2/nu)"))
 
 def noncentral_t_expval(mu, lam, nu):
     """noncentral_t_expval(mu, lam, nu)
@@ -2660,14 +2667,18 @@ def noncentral_t_expval(mu, lam, nu):
         return mu
     return inf
 
-def t_grad_setup(x, nu, f):
-    nu = np.asarray(nu)
+def noncentral_t_grad_nu( x, mu, lam, nu) : 
+    
+    psi1 = psi((nu + 1)/2.0) 
+    psi2 = psi(nu/2.0)
+    return sum_to_shape(evaluate(
+        "psi1* .5 - .5/nu - psi2 *.5 - .5 * log(1.0 + lam * (x-mu)**2/nu) + ((nu + 1.0)/2.0) * lam * (x-mu)**2/(nu**2+lam * (x-mu)**2*nu)"),
+                        np.shape(nu))
 
-    return f(x, nu)
-
-t_grad_like = {'value'  : lambda x, nu : t_grad_setup(x, nu, flib.t_grad_x),
-               'nu' : lambda x, nu : t_grad_setup(x, nu, flib.t_grad_nu)}
-
+noncentral_t_grad_like = {'value'   : lambda x, mu, lam, nu : sum_to_shape(evaluate("-(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)")),
+                          'mu'      : lambda x, mu, lam, nu : sum_to_shape(evaluate("(nu+1.0) * lam * (x-mu) / ( nu + lam * (x-mu)**2)")),
+                          'lam'     : lambda x, mu, lam, nu : sum_to_shape(evaluate(".5/lam - (nu + 1.0)/2.0 * (x-mu)**2 / ( nu + lam * (x-mu)**2)")), 
+                          'nu'      : noncentral_t_grad_nu}
 
 # DiscreteUniform--------------------------------------------------
 @randomwrap
@@ -2738,11 +2749,11 @@ def uniform_like(x,lower, upper):
       - `upper` : Upper limit (upper > lower).
     """
 
-    return np.sum(evaluate('where(x > lower & x < upper, 1/(upper-lower), -Inf)'))
+    return np.sum(evaluate('where((x > lower) & (x < upper), 1/(upper-lower), -inf)'))
 
-uniform_grad_like = {'value' : lambda x, lower, upper: zeros(np.shape(x)),
-                     'lower' : lambda x, lower, upper: sum_to_shape(evaluate('where(x > lower & x < upper, 1/(upper-lower), 0)'), np.shape(lower)),
-                     'upper' : lambda x, lower, upper: sum_to_shape(evaluate('where(x > lower & x < upper, 1/(lower-upper), 0)'), np.shape(lower))}
+uniform_grad_like = {'value' : lambda x, lower, upper: np.zeros(np.shape(x)),
+                     'lower' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), 1/(upper-lower), 0)'), np.shape(lower)),
+                     'upper' : lambda x, lower, upper: sum_to_shape(evaluate('where((x > lower) & (x < upper), 1/(lower-upper), 0)'), np.shape(lower))}
 
 # Weibull--------------------------------------------------
 @randomwrap
@@ -2777,17 +2788,17 @@ def weibull_like(x, alpha, beta):
       - :math:`E(x)=\beta \Gamma(1+\frac{1}{\alpha})`
       - :math:`Var(x)=\beta^2 \Gamma(1+\frac{2}{\alpha} - \mu^2)`
     """
-    # try:
-    #     constrain(alpha, lower=0)
-    #     constrain(beta, lower=0)
-    #     constrain(x, lower=0)
-    # except ZeroProbability:
-    #     return -np.Inf
-    return flib.weibull(x, alpha, beta)
+    if not (constrained(alpha, lower=0) and 
+            constrained(beta, lower=0) and 
+            constrained(x, lower=0)):
+        return -np.Inf
+    
+    
+    return np.sum(evaluate('(log(alpha) - alpha*log(beta))+ (alpha-1) * log(x)- (x/beta)**alpha'))
 
-weibull_grad_like = {'value' : flib.weibull_gx,
-                 'alpha' : flib.weibull_ga,
-                 'beta' : flib.weibull_gb}
+weibull_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('(alpha-1)/x-alpha*beta**(-alpha)*x**(alpha-1)'), np.shape(x)),
+                     'alpha' : lambda x, alpha, beta: sum_to_shape(evaluate('1/alpha+log(x)-log(beta)-(x/beta)**alpha*log(x/beta)'), np.shape(alpha)),
+                     'beta'  : lambda x, alpha, beta: sum_to_shape(evaluate('-1/beta-(alpha-1)/beta+x**alpha*alpha*beta**(-alpha-1)'), np.shape(beta))}
 
 # Wishart---------------------------------------------------
 
