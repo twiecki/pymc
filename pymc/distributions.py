@@ -734,7 +734,7 @@ def beta_grad_alpha(x, alpha, beta):
 def beta_grad_beta(x, alpha, beta):
     psi_ab = psi(alpha + beta)
     psi_b = psi(beta)
-    return sum_to_shape(evaluate('log(1 - x) - psi_b + psi_ab'), np.shape(alpha))
+    return sum_to_shape(evaluate('log(1 - x) - psi_b + psi_ab'), np.shape(beta))
 
 beta_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('(alpha - 1)/x - (beta - 1)/(1 - x)'), np.shape(x)),
                   'alpha' : beta_grad_alpha,
