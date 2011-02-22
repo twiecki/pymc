@@ -40,7 +40,6 @@ import utils
 import warnings
 from numexpr import evaluate
 from calc_utils import sum_to_shape
-from scipy.special import gammaln, psi
 
 def poiscdf(a, x):
     x = np.atleast_1d(x)
@@ -279,6 +278,13 @@ def new_dist_class(*new_class_args):
     new_class.raw_fns = {'logp': logp, 'random': random}
 
     return new_class
+
+def to_ufunc_1arg(func):
+    return lambda x : np.reshape(func(np.ravel(x)),np.shape(x))
+
+gammaln = tp_ufunc_1arg(flib.gammaln)
+psi = tp_ufunc_1arg(flib.psi)
+factln = tp_ufunc_1arg(flib.factln)
 
 
 def stochastic_from_dist(name, logp, random=None, logp_partial_gradients={}, dtype=np.float, mv=False):
@@ -781,9 +787,9 @@ def binomial_like(x, n, p):
        - :math:`E(X)=np`
        - :math:`Var(X)=np(1-p)`
     """
-    fn = flib.factln(n)
-    fx = flib.factln(x)
-    fnx = flib.factln(n-x)
+    fn = factln(n)
+    fx = factln(x)
+    fnx = factln(n-x)
     return np.sum(evaluate('x*log(p) + (n-x)*log(1-p) +fn-fx-fnx'))
 
 
