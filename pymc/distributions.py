@@ -280,8 +280,11 @@ def new_dist_class(*new_class_args):
     return new_class
 
 def to_ufunc_1arg(func):
-    return lambda x : np.reshape(func(np.ravel(x)),np.shape(x))
-
+    def new_func( x) :
+        return np.reshape(func(np.ravel(x)),np.shape(x))
+    new_func.__name__ = func.__name__
+    new_func.__doc__ = func.__doc__
+    
 gammaln = tp_ufunc_1arg(flib.gammaln)
 psi = tp_ufunc_1arg(flib.psi)
 factln = tp_ufunc_1arg(flib.factln)
@@ -2371,9 +2374,10 @@ def poisson_like(x,mu):
             constrained(mu, lower=0,allow_equal=True)):
         return -np.Inf
     
-    return flib.poisson(x,mu)
+    fcl1 = factln(x)
+    return np.sum(evaluate('where((x != 0) & (mu != 0), x*log(mu), 0) - mu - fcl1'))
 
-poisson_grad_like = {'mu' : flib.poisson_gmu}
+poisson_grad_like = {'mu' : lambda x, mu: sum_to_shape(evaluate('x / mu - 1'), np.shape(mu))}
 
 # Truncated Poisson--------------------------------------------------
 @randomwrap
