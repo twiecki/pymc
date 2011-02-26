@@ -40,6 +40,7 @@ import utils
 import warnings
 from numexpr import evaluate
 from calc_utils import sum_to_shape
+from scipy.special import gammaln, psi
 
 def poiscdf(a, x):
     x = np.atleast_1d(x)
@@ -282,12 +283,11 @@ def new_dist_class(*new_class_args):
 def to_ufunc_1arg(func):
     def new_func( x) :
         return np.reshape(func(np.ravel(x)),np.shape(x))
-    new_func.__name__ = func.__name__
-    new_func.__doc__ = func.__doc__
+    return new_func
     
-gammaln = tp_ufunc_1arg(flib.gammaln)
-psi = tp_ufunc_1arg(flib.psi)
-factln = tp_ufunc_1arg(flib.factln)
+#gammaln = to_ufunc_1arg(flib.gamfun)
+#psi = to_ufunc_1arg(flib.psi)
+factln = to_ufunc_1arg(flib.factln)
 
 
 def stochastic_from_dist(name, logp, random=None, logp_partial_gradients={}, dtype=np.float, mv=False):
@@ -2140,7 +2140,11 @@ def negative_binomial_like(x, mu, alpha):
         :math:`\mu=r(1-p)/p`
 
     """
-    return flib.negbin2(x, mu, alpha)
+    gl_xa = gammln(x+alpha)
+    fcl_x = factln(x)
+    gl_a = gammaln(alpha)
+     
+    return np.sum(evaluate('gl_xa - fcl_x - gl_a + x*(log(mu/alpha) - log(1+mu/alpha)) - alpha*log(1 + mu/alpha)'))
 
 negative_binomial_grad_like = {'mu'    : flib.negbin2_gmu,
                                'alpha' : flib.negbin2_ga}
@@ -2192,9 +2196,6 @@ normal_grad_like = {'value' : lambda x,mu, tau: sum_to_shape(evaluate('-(x - mu)
                     'mu'    : lambda x,mu, tau: sum_to_shape(evaluate('(x - mu) * tau'), np.shape(mu)),
                     'tau'   : lambda x,mu, tau: sum_to_shape(evaluate('1.0 / (2 * tau) - .5 * (x - mu)**2'), np.shape(tau))}
 
-#normal_grad_like = {'x' : flib.normal_grad_x,
-#             'mu' : flib.normal_grad_mu,
-#             'tau' : flib.normal_grad_tau}
 
 # von Mises--------------------------------------------------
 @randomwrap
