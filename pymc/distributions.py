@@ -284,7 +284,7 @@ def to_ufunc_1arg(func):
     def new_func( x) :
         return np.reshape(func(np.ravel(x)),np.shape(x))
     return new_func
-    
+
 #gammaln = to_ufunc_1arg(flib.gamfun)
 #psi = to_ufunc_1arg(flib.psi)
 factln = to_ufunc_1arg(flib.factln)
@@ -506,9 +506,9 @@ def standardize(x, loc=0, scale=1):
 # ==================================
 # @Vectorize
 #def gammaln(x):
-"""
-Logarithm of the Gamma function
-"""
+    """
+    Logarithm of the Gamma function
+    """
 
 #    return flib.gamfun(x)
 
@@ -728,11 +728,11 @@ def beta_like(x, alpha, beta):
             constrained(beta, lower=0, allow_equal=True) and 
             constrained(x, 0, 1, allow_equal=True)):
         return -np.Inf
-    
+
     gl_ab = gammaln(alpha+beta)
     gl_a = gammaln(alpha)
     gl_b = gammaln(beta) 
-    
+
     return np.sum(evaluate('gl_ab - gl_a - gl_b + (alpha- 1)*log(x) + (beta-1)*log(1-x)'))
 
 def beta_grad_alpha(x, alpha, beta):
@@ -855,7 +855,7 @@ def betabin_like(x, alpha, beta, n):
     gml_ax = gammaln(alpha+x)
     gml_nbx = gammaln(n+beta-x)
     gml_nab = gammaln(beta+alpha+n)
-    
+
     return np.sum(evaluate('gml_ab - gml_b - gml_b + gml_n1 - gml_x1 - gml_nx1 + gml_ax + gml_nbx - gml_nab'))
 
 def betabin_grad_like_alpha(x, alpha, beta,n):
@@ -902,10 +902,10 @@ def categorical_like(x, p):
     """
 
     p = np.atleast_2d(p)
-    if any(np.sum(p, 1)!=1):
-        print "Probabilities may not sum to unity:", p
+    if abs(np.sum(p, 1)-1)>0.00001:
+        print "Probabilities in categorical_like sum to", np.sum(p, 1)
     if np.array(x).dtype != int:
-        print "Non-integer values in categorical_like"
+        #print "Non-integer values in categorical_like"
         return -inf
     return flib.categorical(x, p)
 
@@ -1356,7 +1356,7 @@ def geometric_like(x, p):
     """
     if np.any(x < 1) or np.any(p <0) or np.any(p>1):
         return -np.Inf 
-    
+
     return np.sum( evaluate('log(p) + (x-1)* log(1-p)'))
 
 geometric_grad_like = {'p' : lambda x,p: sum_to_shape(evaluate('-(x - 1)/(1 - p) + 1/p'), np.shape(p))}
@@ -2143,7 +2143,7 @@ def negative_binomial_like(x, mu, alpha):
     gl_xa = gammln(x+alpha)
     fcl_x = factln(x)
     gl_a = gammaln(alpha)
-     
+
     return np.sum(evaluate('gl_xa - fcl_x - gl_a + x*(log(mu/alpha) - log(1+mu/alpha)) - alpha*log(1 + mu/alpha)'))
 
 negative_binomial_grad_like = {'mu'    : flib.negbin2_gmu,
@@ -2374,7 +2374,7 @@ def poisson_like(x,mu):
     if not (constrained(x, lower=0,allow_equal=True) and 
             constrained(mu, lower=0,allow_equal=True)):
         return -np.Inf
-    
+
     fcl1 = factln(x)
     return np.sum(evaluate('where((x != 0) & (mu != 0), x*log(mu), 0) - mu - fcl1'))
 
@@ -2632,7 +2632,7 @@ def t_expval(nu):
     Expectation of Student's t random variables.
     """
     return 0
-
+    
 def t_grad_nu(x, nu):
     psi1 = psi((nu + 1)/2.0) 
     psi2 = psi(nu/2.0)
@@ -2686,7 +2686,7 @@ def noncentral_t_expval(mu, lam, nu):
     return inf
 
 def noncentral_t_grad_nu( x, mu, lam, nu) : 
-    
+
     psi1 = psi((nu + 1)/2.0) 
     psi2 = psi(nu/2.0)
     return sum_to_shape(evaluate(
@@ -2810,8 +2810,8 @@ def weibull_like(x, alpha, beta):
             constrained(beta, lower=0) and 
             constrained(x, lower=0)):
         return -np.Inf
-    
-    
+
+
     return np.sum(evaluate('(log(alpha) - alpha*log(beta))+ (alpha-1) * log(x)- (x/beta)**alpha'))
 
 weibull_grad_like = {'value' : lambda x, alpha, beta: sum_to_shape(evaluate('(alpha-1)/x-alpha*beta**(-alpha)*x**(alpha-1)'), np.shape(x)),
