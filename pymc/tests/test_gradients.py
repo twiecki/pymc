@@ -141,11 +141,12 @@ class test_gradients(TestCase):
 
         
     def test_jacobians(self):
-        shape = (3, 10)
-        a = Normal('a', mu = zeros(shape), tau = ones(shape))
-        b = Normal('b', mu = zeros(shape), tau = ones(shape))
-        c = Uniform('c', lower = ones(shape) * .1, upper = ones(shape) * 10)
-        d = Uniform('d', lower = ones(shape) * -10, upper = ones(shape) * -.1)
+        shape1 = (3, 2,4)
+        shape2 = (1,2,1)
+        a = Normal('a', mu = zeros(shape1), tau = ones(shape1))
+        b = Normal('b', mu = zeros(shape1), tau = ones(shape2))
+        c = Uniform('c', lower = ones(shape1) * .1, upper = ones(shape1) * 10)
+        d = Uniform('d', lower = ones(shape1) * -10, upper = ones(shape2) * -.1)
         
         addition = a + b 
         check_jacobians(addition)
@@ -162,7 +163,7 @@ class test_gradients(TestCase):
         division2 = a / d
         check_jacobians(division2)
         
-        a2 = Uniform('a2', lower = .1 * ones(shape), upper = 2.0 * ones(shape))
+        a2 = Uniform('a2', lower = .1 * ones(shape1), upper = 2.0 * ones(shape1))
         powering = a2 ** b
         check_jacobians(powering)
         
@@ -185,13 +186,14 @@ class test_gradients(TestCase):
         
     def test_numpy_deterministics_jacobians(self):
         
-        shape = (2, 3)
-        a = Normal('a', mu = zeros(shape), tau = ones(shape)*5)
-        b = Normal('b', mu = zeros(shape), tau = ones(shape))
-        c = Uniform('c', lower = ones(shape) * .1, upper = ones(shape) * 10)
-        d = Uniform('d', lower = ones(shape) * -1.0, upper = ones(shape) * 1.0)
-        e = Normal('e', mu = zeros(shape), tau = ones(shape))
-        f = Uniform('c', lower = ones(shape) * 1.0, upper = ones(shape) * 10)
+        shape1 = (2, 3,4)
+        shape2 = (1, 3,1)
+        a = Normal('a', mu = zeros(shape1), tau = ones(shape1)*5)
+        b = Normal('b', mu = zeros(shape2), tau = ones(shape2))
+        c = Uniform('c', lower = ones(shape1) * .1, upper = ones(shape1) * 10)
+        d = Uniform('d', lower = ones(shape1) * -1.0, upper = ones(shape1) * 1.0)
+        e = Normal('e', mu = zeros(shape1), tau = ones(shape1))
+        f = Uniform('c', lower = ones(shape1) * 1.0, upper = ones(shape1) * 10)
         
         summing = sum(a, axis = 0)
         check_jacobians(summing)
@@ -258,20 +260,21 @@ class test_gradients(TestCase):
         
     def test_gradients(self):
         
-        shape = (5,)
-        a = Normal('a', mu = zeros(shape), tau = ones(shape))
-        b = Normal('b', mu = zeros(shape), tau = ones(shape))
+        shape1 = (5,2,3)
+        shape2 = (1,2,1)
+        a = Normal('a', mu = zeros(shape1), tau = ones(shape1))
+        b = Normal('b', mu = zeros(shape2), tau = ones(shape2))
         b2 = Normal('b2', mu = 2, tau = 1.0)
-        c = Uniform('c', lower = ones(shape) * .7, upper = ones(shape) * 2.5 )
-        d = Uniform('d', lower = ones(shape) * .7, upper = ones(shape) * 2.5 )
-        e = Uniform('e', lower = ones(shape) * .2, upper = ones(shape) * 10)
-        f = Uniform('f' , lower = ones(shape) * 2, upper = ones(shape) * 30)
-        p = Uniform('p', lower = zeros(shape) +.05 , upper = ones(shape)  -.05 )
+        c = Uniform('c', lower = ones(shape1) * .7, upper = ones(shape1) * 2.5 )
+        d = Uniform('d', lower = ones(shape2) * .7, upper = ones(shape2) * 2.5 )
+        e = Uniform('e', lower = ones(shape1) * .2, upper = ones(shape1) * 10)
+        f = Uniform('f' , lower = ones(shape2) * 2, upper = ones(shape2) * 30)
+        p = Uniform('p', lower = zeros(shape1) +.05 , upper = ones(shape1)  -.05 )
         n = 5
         
         
-        a.value = 2 * ones(shape)
-        b.value = 2.5 * ones(shape)
+        a.value = 2 * ones(shape1)
+        b.value = 2.5 * ones(shape1)
         b2.value = 2.5
         
         norm = Normal('norm', mu = a, tau = b)
