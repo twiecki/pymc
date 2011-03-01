@@ -2140,7 +2140,7 @@ def negative_binomial_like(x, mu, alpha):
         :math:`\mu=r(1-p)/p`
 
     """
-    gl_xa = gammln(x+alpha)
+    gl_xa = gammaln(x+alpha)
     fcl_x = factln(x)
     gl_a = gammaln(alpha)
 
