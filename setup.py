@@ -62,7 +62,19 @@ except:
 # = Compile Cython extensions =
 # ============================
 
-import 
+#execute the ufunc generation script
+import pymc.gen_dist_ufuncs
+# monkey-patch numpy distutils to use Cython instead of Pyrex
+#found here: http://answerpot.com/showthread.php?601643-cython+and+f2py on March 6 2011
+#http://github.com/matthew-brett/nipy/blob/master/setup.py
+#http://github.com/matthew-brett/nipy/blob/master/build_helpers.py
+from numpy.distutils.command.build_src import build_src
+from buildtools import generate_a_pyrex_source
+build_src.generate_a_pyrex_source = generate_a_pyrex_source
+import numpy as np
+config.add_extension(name = 'dist_ufuncs',sources =['pymc/dist_ufuncs.pyx'], include_dirs=[np.get_include()])
+config.add_extension(name = 'special', sources = ['pymc/special.pyx'], include_dirs=[np.get_include()])
+
 
 # ===========================================
 # = Compile GP package's Fortran extensions =
