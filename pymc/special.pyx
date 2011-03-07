@@ -1,11 +1,10 @@
-cdef extern from "math.h":
-	double log(double x)      
+#cython: cdivision=True  
     
 cdef double pi = 3.14159265
 cdef double inf = 1.7976931348623157e308
 
 cdef extern from "math.h":
-	double log(double x)      
+	double log(double x) nogil     
 
 cdef double gln_coeff[6]
 gln_coeff[0] = 76.18009173
@@ -15,7 +14,8 @@ gln_coeff[0] =-1.231739516
 gln_coeff[0] =0.00120858003
 gln_coeff[0] = -.00000536382
 
-cdef double gammaln(double xx):
+
+cdef double gammaln(double xx) nogil:
 	"""Return the logarithm of the gamma function
 	Corresponds to scipy.special.gammaln"""
 	
@@ -25,7 +25,7 @@ cdef double gammaln(double xx):
 	
 	x = xx
 	tmp = x + 5.5
-	tmp -= (x+0.5) * log(tmp)
+	tmp = tmp - (x+0.5) * log(tmp)
 	ser = 1.000000000190015
 	
 	for i in range(6):
@@ -34,13 +34,13 @@ cdef double gammaln(double xx):
 	
 	return -tmp + log(2.50662827465*ser/xx)
 
-cdef double psi(double x):
+cdef double psi(double x) nogil:
 
 	"""taken from 
 	Bernardo, J. M. (1976). Algorithm AS 103: Psi (Digamma) Function. Applied Statistics. 25 (3), 315-317. 
 	http://www.uv.es/~bernardo/1976AppStatist.pdf """
 	
-	cdef double y, R, psi
+	cdef double y, R, psi_ = 0
 	cdef double S  = 1.0e-5
 	cdef double C = 8.5
 	cdef double S3 = 8.333333333e-2
@@ -51,37 +51,37 @@ cdef double psi(double x):
 	y = x
 	
 	if y <= 0.0:
-		return psi 
+		return psi_ 
 	    
 	if y <= S :
 		return D1 - 1.0/y
 	
 	while y < C:
-		psi -= 1.0 / y
+		psi_ = psi_ - 1.0 / y
 		y = y + 1
 	
 	R = 1.0 / y
-	psi += log(y) - .5 * R 
+	psi_ = psi_ + log(y) - .5 * R 
 	R= R*R
-	psi -= R * (S3 - R * (S4 - R * S5))
+	psi_ = psi_ - R * (S3 - R * (S4 - R * S5))
 	
-	return psi
+	return psi_
 
 a_n = 100
 cdef double factln_a[100]
 #Initialize the table to negative values. 
 for i in range(a_n):
-	factln_a[i] = -1.
+	factln_a[i] = -1.0
 
-cdef double factln(int n) :
+cdef double factln(int n) nogil:
 	"""gammln Returns ln(n!). """
 	
-	cdef pass_val = n + 1
+	cdef double pass_val = n + 1.0
 	if n < 0:
 		return -inf
 	
 	if n < 99:
-		if (factln_a[n] < 0.) :
+		if (factln_a[n] < 0.0) :
 			factln_a[n] = gammaln(pass_val) 
 		return factln_a[n]
 	else :

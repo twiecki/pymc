@@ -61,9 +61,10 @@ except:
 # ============================
 # = Compile Cython extensions =
 # ============================
+import os
+path = os.path.join(os.path.dirname( os.path.abspath(os.path.realpath( __file__ ))), 'pymc/gen_dist_ufuncs.py')
+exec(open(path).read())
 
-#execute the ufunc generation script
-import pymc.gen_dist_ufuncs
 # monkey-patch numpy distutils to use Cython instead of Pyrex
 #found here: http://answerpot.com/showthread.php?601643-cython+and+f2py on March 6 2011
 #http://github.com/matthew-brett/nipy/blob/master/setup.py
