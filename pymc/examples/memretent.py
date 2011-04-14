@@ -37,7 +37,6 @@ data_array = [np.array([18,18,16,13,9,6,4,4,4,None]),
               np.array([None,None,None,None,None,None,None,None,None,None])]
 
 masked_data = [np.ma.masked_equal(x, value=None) for x in data_array]
-print masked_data
 
 # Times points for test
 t = np.array([1,2,4,7,12,21,35,59,99,200])
@@ -46,16 +45,16 @@ num_subjs = len(data_array)
 num_trials = t.shape[0]
 
 # Priors For Group Distributions
-alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0,upper=1, plot=True)
-alpha_sigma = pm.Uniform('alpha_sigma', value=1, lower=.1, upper=5, plot=False)
-beta_mu = pm.Uniform('beta_mu', value=.5, lower=0,upper=1, plot=True)
-beta_sigma = pm.Uniform('beta_sigma', value=1, lower=.1, upper=5, plot=False)
+alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0, upper=1, plot=True)
+alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=1000, plot=True)
+beta_mu = pm.Uniform('beta_mu', value=.5, lower=0, upper=1, plot=True)
+beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0, upper=1000, plot=True)
 
 # Containers for individual distributions
 alpha = np.empty(num_subjs, dtype=object)
 beta = np.empty(num_subjs, dtype=object)
 retention = np.empty(num_subjs, dtype=object)
-k = np.empty((num_subjs, num_trials), dtype=object)
+k = np.empty(num_subjs, dtype=object)
 
 def exp_offset(alpha, beta, t):
     theta = np.exp(-alpha*t) + beta # Exponential decay in memory retention
@@ -65,12 +64,11 @@ def exp_offset(alpha, beta, t):
     return theta
 
 for i in range(num_subjs):
-    alpha[i] = pm.Normal('alpha_'+str(i), mu=alpha_mu, tau=1./alpha_sigma**2, plot=False)
-    beta[i] = pm.Normal('beta_'+str(i), mu=beta_mu, tau=1./beta_sigma**2, plot=False)
-    
-    retention[i] = pm.Deterministic(exp_offset, 'k_%i'%i, 'k_%i'%i, {'alpha':alpha[i], 'beta':beta[i], 't':t}, plot=False)
+    alpha[i] = pm.TruncatedNormal('alpha_%i'%i, mu=alpha_mu, tau=alpha_sigma**-2, a=0, b=1, plot=True)
+    beta[i] = pm.TruncatedNormal('beta_%i'%i, mu=beta_mu, tau=beta_sigma**-2, a=0, b=1, plot=True)
+    retention[i] = pm.Deterministic(exp_offset, 'retention_%i'%i, 'retention_%i'%i, {'alpha':alpha[i], 'beta':beta[i], 't':t}, plot=False)
 
-    k[i,:] = pm.ImputeMissing('k_'+str(i), pm.Binomial, masked_data[i], p=retention[i], n=[n for i in range(num_trials)], plot=False)
+    k[i] = pm.Binomial('k_%i'%i, value=masked_data[i], p=retention[i], n=n*np.ones(num_trials), observed=True, plot=False)
 
 # PLOTTING FUNCTION
 def plot_joint(M):
@@ -82,7 +80,7 @@ def plot_joint(M):
 
     fig = plt.figure()
     spacing = 0.01
-    wdth_cond=0.1
+    wdth_cond = 0.1
     x_wdth = 0.7
     y_wdth = 0.75
     lft = 0.05
@@ -129,9 +127,9 @@ def plot_joint(M):
     plt.show()
     
 def main(plot=True):
-    model_vars = [alpha, beta, exp_offset, alphamu, alphalambda, betamu, betalambda, k]
+    model_vars = [alpha, beta, retention, alpha_mu, alpha_sigma, beta_mu, beta_sigma, k]
     M = pm.MCMC(model_vars)
-    M.sample(5000, burn=1000)
+    M.sample(10000, burn=5000)
     if plot:
         plot_joint(M)
 	pm.Matplot.plot(M)
