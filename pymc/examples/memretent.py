@@ -33,8 +33,8 @@ n = 18
 # missing data point. Note that for subject 4 we have no data at all.
 data_array = [np.array([18,18,16,13,9,6,4,4,4,None]),
               np.array([17,13, 9, 6,4,4,4,4,4,None]),
-              np.array([14,10, 6, 4,4,4,4,4,4,None]),
-              np.array([None,None,None,None,None,None,None,None,None,None])]
+              np.array([14,10, 6, 4,4,4,4,4,4,None])]
+              #np.array([None,None,None,None,None,None,None,None,None,None])]
 
 masked_data = [np.ma.masked_equal(x, value=None) for x in data_array]
 
@@ -45,10 +45,10 @@ num_subjs = len(data_array)
 num_trials = t.shape[0]
 
 # Priors For Group Distributions
-alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0, upper=1, plot=True)
-alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=1000, plot=True)
+alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0.01, upper=1, plot=True)
+alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=10, plot=True)
 beta_mu = pm.Uniform('beta_mu', value=.5, lower=0, upper=1, plot=True)
-beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0, upper=1000, plot=True)
+beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0.01, upper=10, plot=True)
 
 # Containers for individual distributions
 alpha = np.empty(num_subjs, dtype=object)
@@ -56,17 +56,20 @@ beta = np.empty(num_subjs, dtype=object)
 retention = np.empty(num_subjs, dtype=object)
 k = np.empty(num_subjs, dtype=object)
 
-def exp_offset(alpha, beta, t):
-    theta = np.exp(-alpha*t) + beta # Exponential decay in memory retention
-    # Boundary conditions
-    theta[theta>=1] = .999
-    theta[theta<0] = 0
-    return theta
-
 for i in range(num_subjs):
     alpha[i] = pm.TruncatedNormal('alpha_%i'%i, mu=alpha_mu, tau=alpha_sigma**-2, a=0, b=1, plot=True)
     beta[i] = pm.TruncatedNormal('beta_%i'%i, mu=beta_mu, tau=beta_sigma**-2, a=0, b=1, plot=True)
-    retention[i] = pm.Deterministic(exp_offset, 'retention_%i'%i, 'retention_%i'%i, {'alpha':alpha[i], 'beta':beta[i], 't':t}, plot=False)
+
+    @pm.deterministic
+    def retention_i(alpha=alpha[i], beta=beta[i], t=t):
+        theta = np.exp(-alpha*t) + beta # Exponential decay in memory retention
+        # Boundary conditions
+        theta[theta>=1] = .999
+        theta[theta<0] = 0
+        return theta
+
+    retention_i.__name__ = 'retention_%i'%i
+    retention[i] = retention_i
 
     k[i] = pm.Binomial('k_%i'%i, value=masked_data[i], p=retention[i], n=n*np.ones(num_trials), observed=True, plot=False)
 
@@ -129,9 +132,9 @@ def plot_joint(M):
 def main(plot=True):
     model_vars = [alpha, beta, retention, alpha_mu, alpha_sigma, beta_mu, beta_sigma, k]
     M = pm.MCMC(model_vars)
-    M.use_step_method(pm.AdaptiveMetropolis, alpha)
-    M.use_step_method(pm.AdaptiveMetropolis, beta)
-    M.sample(10000, burn=5000)
+    #M.use_step_method(pm.AdaptiveMetropolis, alpha)
+    #M.use_step_method(pm.AdaptiveMetropolis, beta)
+    M.sample(20000, burn=15000)
     if plot:
         plot_joint(M)
 	pm.Matplot.plot(M)
