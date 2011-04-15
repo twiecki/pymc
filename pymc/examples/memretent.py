@@ -46,9 +46,9 @@ num_trials = t.shape[0]
 
 # Priors For Group Distributions
 alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0.01, upper=1, plot=True)
-alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=10, plot=True)
+alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=100, plot=True)
 beta_mu = pm.Uniform('beta_mu', value=.5, lower=0, upper=1, plot=True)
-beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0.01, upper=10, plot=True)
+beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0.01, upper=100, plot=True)
 
 # Containers for individual distributions
 alpha = np.empty(num_subjs, dtype=object)
