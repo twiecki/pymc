@@ -129,6 +129,8 @@ def plot_joint(M):
 def main(plot=True):
     model_vars = [alpha, beta, retention, alpha_mu, alpha_sigma, beta_mu, beta_sigma, k]
     M = pm.MCMC(model_vars)
+    M.use_step_method(pm.AdaptiveMetropolis, alpha)
+    M.use_step_method(pm.AdaptiveMetropolis, beta)
     M.sample(10000, burn=5000)
     if plot:
         plot_joint(M)
