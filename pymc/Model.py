@@ -125,7 +125,7 @@ class Model(ObjectContainer):
     def get_node(self, node_name):
         """Retrieve node with passed name"""
         for node in self.nodes:
-            if node.__name__ is node_name:
+            if node.__name__ == node_name:
                 return node 
 
 
@@ -220,6 +220,9 @@ class Sampler(Model):
         if verbose>0:
             self.verbose = verbose
         self.seed()
+
+        # Assign Trace instances to tallyable objects.
+        self.db.connect_model(self)
 
         # Initialize database -> initialize traces.
         if length is None:
@@ -415,10 +418,6 @@ class Sampler(Model):
             self.restore_sampler_state()
         else:   # What is this for? DH. 
             self.db = db.Database(**self._db_args)
-
-        # Assign Trace instances to tallyable objects.
-        self.db.connect_model(self)
-
 
     def pause(self):
         """Pause the sampler. Sampling can be resumed by calling `icontinue`.
