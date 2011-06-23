@@ -36,19 +36,24 @@ data_array = [np.array([18,18,16,13,9,6,4,4,4,None]),
               np.array([14,10, 6, 4,4,4,4,4,4,None])]
               #np.array([None,None,None,None,None,None,None,None,None,None])]
 
+data_array = [np.array([18,18,16,13,9,6,4,4,4]),
+              np.array([17,13, 9, 6,4,4,4,4,4]),
+              np.array([14,10, 6, 4,4,4,4,4,4])]
+
 masked_data = [np.ma.masked_equal(x, value=None) for x in data_array]
 
 # Times points for test
 t = np.array([1,2,4,7,12,21,35,59,99,200])
+t = np.array([1,2,4,7,12,21,35,59,99])
 
 num_subjs = len(data_array)
 num_trials = t.shape[0]
 
 # Priors For Group Distributions
-alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0.01, upper=1, plot=True)
-alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0, upper=100, plot=True)
+alpha_mu = pm.Uniform('alpha_mu', value=.5, lower=0, upper=1, plot=True)
+alpha_sigma = pm.Uniform('alpha_sigma', value=1., lower=0.1, upper=100, plot=True)
 beta_mu = pm.Uniform('beta_mu', value=.5, lower=0, upper=1, plot=True)
-beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0.01, upper=100, plot=True)
+beta_sigma = pm.Uniform('beta_sigma', value=1., lower=0.1, upper=100, plot=True)
 
 # Containers for individual distributions
 alpha = np.empty(num_subjs, dtype=object)
@@ -71,7 +76,7 @@ for i in range(num_subjs):
     retention_i.__name__ = 'retention_%i'%i
     retention[i] = retention_i
 
-    k[i] = pm.Binomial('k_%i'%i, value=masked_data[i], p=retention[i], n=n*np.ones(num_trials), observed=True, plot=False)
+    k[i] = pm.Binomial('k_%i'%i, value=data_array[i], p=retention[i], n=n*np.ones(num_trials), observed=True, plot=False)
 
 # PLOTTING FUNCTION
 def plot_joint(M):
