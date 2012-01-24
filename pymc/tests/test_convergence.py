@@ -61,15 +61,6 @@ class test_geweke(TestCase):
             plot(scores,  path=DIR, verbose=0)
         except ImportError:
             pass
-
-class test_raftery_lewis(TestCase):
-
-    def test_simple(self):
-
-        nmin, kthin, nburn, nprec, kmind = pymc.raftery_lewis(S.a, 0.5, .05, verbose=0)
-
-        # nmin should approximately be the same as nprec/kmind
-        assert(0.8 < (float(nprec)/kmind) / nmin < 1.2)
         
 class test_gelman_rubin(TestCase):
     """Unit test for Gelman-Rubin diagnostic"""
@@ -99,8 +90,19 @@ class test_iat(TestCase):
         assert_approx_equal(iat, 2.28, 2)
 
 if __name__ == "__main__":
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', FutureWarning)
+    
+    original_filters = warnings.filters[:]
+    warnings.simplefilter("ignore")
+    try:
         import nose
         C =nose.config.Config(verbosity=1)
         nose.runmodule(config=C)
+    finally:
+        warnings.filters = original_filters
+    
+    # TODO: Restore in 2.2
+    # with warnings.catch_warnings():
+    #         warnings.simplefilter('ignore', FutureWarning)
+    #         import nose
+    #         C =nose.config.Config(verbosity=1)
+    #         nose.runmodule(config=C)

@@ -22,7 +22,7 @@ from copy import copy
 
 try:
     from scipy.optimize import fmin_ncg, fmin, fmin_powell, fmin_cg, fmin_bfgs, fmin_ncg, fmin_l_bfgs_b
-    from scipy import derivative
+    from scipy.misc import derivative
     scipy_imported = True
 except ImportError:
     scipy_imported = False
@@ -247,7 +247,10 @@ class MAP(Model):
 
         if self.verbose > 0:
             def callback(p):
-                print 'Current log-probability : %f' %self.logp
+                try:
+                    print 'Current log-probability : %f' % self.logp
+                except ZeroProbability:
+                    print 'Current log-probability : %f' % -Inf
         else:
             def callback(p):
                 pass
@@ -310,7 +313,10 @@ class MAP(Model):
             raise RuntimeError, 'Posterior probability optimization converged to value with zero probability.'
 
         self.AIC = 2. * (self.len - self.logp_at_max) # 2k - 2 ln(L)
-        self.BIC = self.len * log(self.data_len) - 2. * self.logp_at_max # k ln(n) - 2 ln(L)
+        try:
+            self.BIC = self.len * log(self.data_len) - 2. * self.logp_at_max # k ln(n) - 2 ln(L)
+        except FloatingPointError:
+            self.BIC = -Inf
 
         self.fitted = True
 

@@ -209,16 +209,14 @@ class Sampler(Model):
 
         return -2*sum([v.get_logp() for v in self.observed_stochastics])
 
-    def sample(self, iter, length=None, verbose=0):
+    def sample(self, iter, length=None, verbose=None):
         """
         Draws iter samples from the posterior.
         """
         self._cur_trace_index=0
         self.max_trace_length = iter
         self._iter = iter
-
-        if verbose>0:
-            self.verbose = verbose
+        self.verbose = verbose or 0
         self.seed()
 
         # Assign Trace instances to tallyable objects.
@@ -329,7 +327,7 @@ class Sampler(Model):
         # Loop over nodes
         for variable in variables:
             # Plot object
-            stat_dict[variable.__name__] = variable.stats(alpha=alpha, start=start, batches=batches, chain=chain)
+            stat_dict[variable.__name__] = self.trace(variable.__name__).stats(alpha=alpha, start=start, batches=batches, chain=chain)
 
         return stat_dict
 
@@ -369,7 +367,6 @@ class Sampler(Model):
           - `txt` : Traces stored in memory and saved in txt files at end of
                 sampling.
           - `sqlite` : Traces stored in sqlite database.
-          - `mysql` : Traces stored in a mysql database.
           - `hdf5` : Traces stored in an HDF5 file.
         """
         # Objects that are not to be tallied are assigned a no_trace.Trace
@@ -378,7 +375,7 @@ class Sampler(Model):
         no_trace = getattr(database, 'no_trace')
         self._variables_to_tally = set()
         for object in self.stochastics | self.deterministics:
-
+            
             if object.trace:
                 self._variables_to_tally.add(object)
                 try:
@@ -475,6 +472,7 @@ class Sampler(Model):
         """
         self._exc_info = None
         out = kwds.pop('out',  sys.stdout)
+        kwds['progress_bar'] = False
         def samp_targ(*args, **kwds):
             try:
                 self.sample(*args, **kwds)

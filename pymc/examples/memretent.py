@@ -33,18 +33,14 @@ n = 18
 # missing data point. Note that for subject 4 we have no data at all.
 data_array = [np.array([18,18,16,13,9,6,4,4,4,None]),
               np.array([17,13, 9, 6,4,4,4,4,4,None]),
-              np.array([14,10, 6, 4,4,4,4,4,4,None])]
-              #np.array([None,None,None,None,None,None,None,None,None,None])]
-
-data_array = [np.array([18,18,16,13,9,6,4,4,4]),
-              np.array([17,13, 9, 6,4,4,4,4,4]),
-              np.array([14,10, 6, 4,4,4,4,4,4])]
+              np.array([14,10, 6, 4,4,4,4,4,4,None]),
+              np.array([None,None,None,None,None,None,None,None,None,None])]
 
 masked_data = [np.ma.masked_equal(x, value=None) for x in data_array]
 
 # Times points for test
 t = np.array([1,2,4,7,12,21,35,59,99,200])
-t = np.array([1,2,4,7,12,21,35,59,99])
+#t = np.array([1,2,4,7,12,21,35,59,99])
 
 num_subjs = len(data_array)
 num_trials = t.shape[0]
@@ -118,8 +114,8 @@ def plot_joint(M):
         histo = histo/np.float(np.max(histo))
         ax3.plot(np.linspace(0,1,bins), histo)
 
-    ax3.axes.set_xlabel(r'$\alpha$')
-    ax2.axes.set_ylabel(r'$\beta$')
+    ax3.axes.set_xlabel(r'\alpha')
+    ax2.axes.set_ylabel(r'\beta')
     ax1.legend(loc=0)
     ax1.axes.set_xlim(0,1)
     ax1.axes.set_ylim(0,1)

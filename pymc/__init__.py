@@ -3,7 +3,7 @@ Markov Chain Monte Carlo sampling toolkit.
 
 Bayesian estimation, particularly using Markov chain Monte Carlo (MCMC), is an increasingly relevant approach to statistical estimation. However, few statistical software packages implement MCMC samplers, and they are non-trivial to code by hand. pymc is a python package that implements the Metropolis-Hastings algorithm as a python class, and is extremely flexible and applicable to a large suite of problems. pymc includes methods for summarizing output, plotting, goodness-of-fit and convergence diagnostics.
 
-pymc only requires NumPy. All other dependencies such as matplotlib, SciPy, pytables, sqlite or mysql are optional.
+pymc only requires NumPy. All other dependencies such as matplotlib, SciPy, pytables, or sqlite are optional.
 
 """
 
@@ -16,10 +16,9 @@ except ImportError:
 
 # Core modules
 from threadpool import *
-try:
-    import Container_values
-    del Container_values
-except ImportError:
+import os
+import pymc
+if os.getcwd().find(os.path.abspath(os.path.split(os.path.split(pymc.__file__)[0])[0]))>-1:
     raise ImportError, 'You seem to be importing PyMC from inside its source tree. Please change to another directory and try again.'
 from Node import *
 from Container import *

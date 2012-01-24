@@ -283,6 +283,81 @@ C Out of range of the table.
       return 
       END
 
+!       def normcdf(x):
+!           """Normal cumulative density function."""
+!           x = np.atleast_1d(x)
+!           return np.array([.5*(1+flib.derf(y/sqrt(2))) for y in x])
+
+      SUBROUTINE normcdf(x, nx)
+cf2py intent(hide) nx
+cf2py intent(inplace) x
+      INTEGER i, nx
+      DOUBLE PRECISION x(nx), sqrttwo
+      
+      sqrttwo = dsqrt(2.0D0)
+      do i=1,nx
+          x(i) = x(i) / sqrttwo
+          x(i) = 0.5D0*(1.0D0 + derf(x(i)))
+      end do
+      RETURN 
+      end
+
+!       mu = np.asarray(mu)
+!       tau = np.asarray(tau)
+!       return  np.sum(np.log(2.) + np.log(pymc.utils.normcdf((x-mu)*np.sqrt(tau)*alpha))) + normal_like(x,mu,tau)
+
+      SUBROUTINE sn_like(x,nx,mu,tau,alph,nmu,ntau,nalph,like)
+cf2py intent(hide) nmu, ntau, nalph, nx
+cf2py intent(out) like
+cf2py threadsafe
+
+      INTEGER i, nx, nalph, nmu, ntau, tnx
+      DOUBLE PRECISION x(nx), mu(nmu), tau(ntau), alph(nalph)
+      DOUBLE PRECISION mu_now, tau_now, alph_now, d_now, like
+      DOUBLE PRECISION scratch
+      LOGICAL vec_mu, vec_tau, vec_alph
+      DOUBLE PRECISION PI, sqrttwo, infinity
+      PARAMETER (PI=3.141592653589793238462643d0) 
+      PARAMETER (infinity = 1.7976931348623157d308)
+      
+      sqrttwo = dsqrt(2.0D0)
+      like = dlog(2.0D0) * nx
+      
+      vec_mu = (nmu.GT.1)
+      vec_tau = (ntau.GT.1)
+      vec_alph = (nalph.GT.1)
+      
+      alph_now = alph(1)
+      tau_now = tau(1)
+      mu_now = mu(1)
+      
+      do i=1,nx
+         if (vec_mu) then
+             mu_now = mu(i)
+         end if
+         if (vec_alph) then
+             alph_now = alph(i)
+         end if
+         if (vec_tau) then
+             tau_now = tau(i)
+         end if
+         if ((tau_now .LE. 0.0).OR.(dabs(tau_now).GE.infinity)) then
+           like = -infinity
+           RETURN
+         endif
+         
+         like = like - 0.5 * tau_now * (x(i) - mu_now) ** 2
+         like = like + 0.5 * dlog(0.5 * tau_now / PI)
+         
+         scratch = (x(i)-mu_now)*dsqrt(tau_now)*alph_now
+         like = like + dlog(0.5D0*(1.0D0+derf(scratch / sqrttwo)))
+!          print *, scratch, x(i), mu_now, tau_now, alpha_now
+!          print *, 
+         
+      end do
+
+      RETURN
+      END
 
       SUBROUTINE RSKEWNORM(x,nx,mu,tau,alph,nmu,ntau,nalph,rn,tnx)
 cf2py intent(hide) nmu, ntau, nalph, tnx
@@ -326,6 +401,7 @@ cf2py threadsafe
 
       RETURN
       END
+      
       subroutine uniform_like(x,lower,upper,n,nlower,nupper,like)
         
 c Return the uniform likelihood of x.
@@ -541,7 +617,7 @@ cf2py threadsafe
       DOUBLE PRECISION x(n), z(n), a(na)
       DOUBLE PRECISION c(nc), loc(nloc), scale(nscale)
       INTEGER i, n, na, nc, nloc, nscale
-      DOUBLE PRECISION like
+      DOUBLE PRECISION like, t1
       LOGICAL not_scalar_a, not_scalar_c, not_scalar_scale
       DOUBLE PRECISION aa, cc, sigma, pdf
       DOUBLE PRECISION infinity
@@ -649,8 +725,8 @@ c Compute z
         
         gradlike(i) = (aa - 1d0)/(1d0 - t1) * t1 * 
      & z(i) **(cc -1d0) * cc / sigma
-        gradlike(i) = gradlike(i) + -  z(i) **(cc -1d0)
-     & * cc/sigma - (cc -1d0)/(z(i) *sigma)
+        gradlike(i) = gradlike(i) + (-  z(i) **(cc -1d0)
+     & * cc/sigma) - (cc -1d0)/(z(i) *sigma)
       enddo
       END SUBROUTINE 
       
@@ -718,7 +794,7 @@ c Compute z
                 
         grad = (aa - 1d0)/(1d0 - t1) * t1 * z(i) **(cc -1d0)
      & * cc / sigma
-        grad = grad + -  z(i) **(cc -1d0) * cc/sigma -
+        grad = grad + (-  z(i) **(cc -1d0) * cc/sigma) -
      & (cc -1d0)/(z(i) *sigma)
         grad = -grad
         if (nloc .NE. 1) then 
@@ -789,7 +865,7 @@ c Compute z
 		t2 = -z(i)**cc
         t1 = dexp(t2)
         
-        grad = 1d0/cc  + (aa - 1d0)/(1d0 - t1) * -t1 * -t2 
+        grad = 1d0/cc  + (aa - 1d0)/(1d0 - t1) * (-t1) * (-t2) 
         grad = grad + t2 +1d0
         grad = grad * dlog(z(i))
         
@@ -935,7 +1011,7 @@ c Compute z
      & t1 * z(i) **(cc - 1d0) *cc 
         grad = grad + z(i) **(cc - 1d0) *cc  
      & + (cc - 1d0)/z(i)
-        grad = grad * -z(i)/sigma
+        grad = grad * (-z(i)/sigma)
         
         if (not_scalar_a) then 
         	gradlike(i) = grad
@@ -2547,7 +2623,7 @@ cf2py threadsafe
         if (x(i).EQ.0.0) then
 
             if (alpha_tmp.EQ.1.0) then
-                like = like + beta_tmp
+                like = like + dlog(beta_tmp)
             else if (alpha_tmp.LT.1.0) then
                 like = infinity
                 RETURN
@@ -2649,7 +2725,7 @@ cf2py threadsafe
       double precision gradalpha
       DOUBLE PRECISION beta_tmp, alpha_tmp
       LOGICAL not_scalar_a, not_scalar_b
-      DOUBLE PRECISION gammln
+      DOUBLE PRECISION gammln, psi
       DOUBLE PRECISION infinity
       PARAMETER (infinity = 1.7976931348623157d308)
 
@@ -2880,7 +2956,7 @@ cf2py threadsafe
       double precision gradalpha
       DOUBLE PRECISION beta_tmp, alpha_tmp
       LOGICAL not_scalar_a, not_scalar_b
-      DOUBLE PRECISION gammln
+      DOUBLE PRECISION gammln, psi
       DOUBLE PRECISION infinity
       PARAMETER (infinity = 1.7976931348623157d308)
 
@@ -3434,7 +3510,7 @@ cf2py threadsafe
         
         glike = -1D0/btmp 
         glike = glike + 2d0 * (x(i)-atmp)**2/
-     & 		(btmp**3*(1D0+(x(i)-atmp)**2/btmp**2))
+     &    (btmp**3*(1D0+(x(i)-atmp)**2/btmp**2))
         
         if (not_scalar_beta) then 
         	gradlike(i) = glike
@@ -3658,7 +3734,7 @@ cf2py threadsafe
      +  - x(i)/(mu_tmp+a_tmp) 
      
         if (not_scalar_a) then 
-        	gradlike(i) = grad	
+        	gradlike(i) = grad
         else
         	gradlike(1) = gradlike(1) + grad
         endif
@@ -4545,7 +4621,7 @@ cf2py 	  double precision intent(out) :: psi
       
 	      DATA S /1.0e-5/, C /8.5/ S3 /8.333333333e-2/
 	      DATA S4 /8.333333333e-3/, S5 /3.968253968e-3/
-	      DATA D1 /-0.5772156649/	 
+	      DATA D1 /-0.5772156649/
 	      
 	      psi = 0
 	
@@ -4775,7 +4851,7 @@ C matrix plus the pivoting element ratios below the diagonal in
 C the output.  INDX(N) records the pivoting order.
 
 
-      DOUBLE PRECISION A(N,N),C(N),C1
+      DOUBLE PRECISION A(N,N),C(N),C1,PI,PJ,PI1
       INTEGER N
       INTEGER INDX(N)
 

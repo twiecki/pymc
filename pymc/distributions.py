@@ -1,6 +1,6 @@
 """
 pymc.distributions
-
+ 
 A collection of common probability distributions. The objects associated
 with a distribution called 'dist' are:
 
@@ -64,11 +64,11 @@ sc_continuous_distributions = ['beta', 'cauchy', 'chi2',
                                'weibull', 'skew_normal', 'truncated_normal',
                                'von_mises']
 sc_bool_distributions = ['bernoulli']
-sc_discrete_distributions = ['binomial', 'geometric', 'poisson',
+sc_discrete_distributions = ['binomial', 'betabin', 'geometric', 'poisson',
                              'negative_binomial', 'categorical', 'hypergeometric',
                              'discrete_uniform', 'truncated_poisson']
 
-sc_nonnegative_distributions = ['bernoulli', 'beta', 'chi2', 'exponential',
+sc_nonnegative_distributions = ['bernoulli', 'beta', 'betabin', 'binomial', 'chi2', 'exponential',
                                 'exponweib', 'gamma', 'half_normal',
                                 'hypergeometric', 'inverse_gamma', 'lognormal',
                                 'weibull']
@@ -373,7 +373,7 @@ def randomwrap(func):
       np.asarray([[0, 1],
              [0, 1]])
     """
-
+    
     # Find the order of the arguments.
     refargs, varargs, varkw, defaults = inspect.getargspec(func)
     #vfunc = np.vectorize(self.func)
@@ -395,7 +395,7 @@ def randomwrap(func):
                     args.append(kwds[k])
                 else:
                     args.append(defaults[n-npos+i])
-
+        
         r = [];s=[];largs=[];nr = args[-1]
         length = [np.atleast_1d(a).shape[0] for a in args]
         dimension = [np.atleast_1d(a).ndim for a in args]
@@ -445,7 +445,7 @@ def randomwrap(func):
     wrapper.__name__ = func.__name__
     return wrapper
 
-def debugwrapper(func, name):
+def debug_wrapper(func, name):
     # Wrapper to debug distributions
 
     import pdb
@@ -728,8 +728,8 @@ def rbinomial(n, p, size=None):
 
     Random binomial variates.
     """
-
-    return np.random.binomial(n,p,size)
+    # return np.random.binomial(n,p,size)
+    return np.random.binomial(np.ravel(n),np.ravel(p),size)
 
 def binomial_expval(n, p):
     """
@@ -845,9 +845,9 @@ def categorical_like(x, p):
       - `x` : [int] :math:`x \in 0\ldots k-1`
       - `p` : [float] :math:`p > 0`, :math:`\sum p = 1`
     """
-
+    
     p = np.atleast_2d(p)
-    if abs(np.sum(p, 1)-1)>0.00001:
+    if any(abs(np.sum(p, 1)-1)>0.0001):
         print "Probabilities in categorical_like sum to", np.sum(p, 1)
     if np.array(x).dtype != int:
         #print "Non-integer values in categorical_like"
@@ -1083,11 +1083,12 @@ def exponential_like(x, beta):
 
     :Parameters:
       - `x` : x > 0
-      - `beta` : Scale parameter (beta > 0).
+      - `beta` : Rate parameter (beta > 0).
 
     .. note::
-      - :math:`E(X) = \beta`
-      - :math:`Var(X) = \beta^2`
+      - :math:`E(X) = 1/\beta`
+      - :math:`Var(X) = 1/\beta^2`
+      - PyMC's beta is named 'lambda' by Wikipedia, SciPy, Wolfram MathWorld and other sources.
     """
 
     return flib.gamma(x, 1, beta)
@@ -1202,7 +1203,7 @@ def gamma_like(x, alpha, beta):
     :Parameters:
       - `x` : math:`x \ge 0`
       - `alpha` : Shape parameter (alpha > 0).
-      - `beta` : Scale parameter (beta > 0).
+      - `beta` : Rate parameter (beta > 0).
 
     .. note::
        - :math:`E(X) = \frac{\alpha}{\beta}`
@@ -2072,7 +2073,7 @@ def negative_binomial_like(x, mu, alpha):
         :math:`\mu=r(1-p)/p`
 
     """
-    if alpha > 1e10:
+    if any(alpha > 1e10):
         # Return Poisson when alpha gets very large
         return flib.poisson(x, mu)
     return flib.negbin2(x, mu, alpha)
@@ -2481,9 +2482,8 @@ def truncated_normal_like(x, mu, tau, a=None, b=None):
     else:
         n = len(x)
         phi = normal_like(x, mu, tau)
-        # It would be nice to replace these with log-error function calls.
-        lPhia = np.log(pymc.utils.normcdf((a-mu)/sigma))
-        lPhib = np.log(pymc.utils.normcdf((b-mu)/sigma))
+        lPhia = pymc.utils.normcdf((a-mu)/sigma, log=True)
+        lPhib = pymc.utils.normcdf((b-mu)/sigma, log=True)
         try:
             d = utils.log_difference(lPhib, lPhia)
         except ValueError:
@@ -2529,9 +2529,10 @@ def skew_normal_like(x,mu,tau,alpha):
     .. note::
       See http://azzalini.stat.unipd.it/SN/
     """
-    mu = np.asarray(mu)
-    tau = np.asarray(tau)
-    return  np.sum(np.log(2.) + np.log(pymc.utils.normcdf((x-mu)*np.sqrt(tau)*alpha))) + normal_like(x,mu,tau)
+    # mu = np.asarray(mu)
+    # tau = np.asarray(tau)
+    # return  np.sum(np.log(2.) + np.log(pymc.utils.normcdf((x-mu)*np.sqrt(tau)*alpha))) + normal_like(x,mu,tau)
+    return flib.sn_like(x, mu, tau, alpha)
 
 def skew_normal_expval(mu,tau,alpha):
     """skew_normal_expval(mu, tau, alpha)
@@ -2628,6 +2629,48 @@ def t_grad_setup(x, nu, f):
 t_grad_like = {'value'  : lambda x, nu : t_grad_setup(x, nu, flib.t_grad_x),
                'nu' : lambda x, nu : t_grad_setup(x, nu, flib.t_grad_nu)}
 
+# Half-non-central t-----------------------------------------------
+@randomwrap
+def rhalf_noncentral_t(mu, lam, nu, size=None):
+    """rhalf_noncentral_t(mu, lam, nu, size=1)
+
+    Half-non-central Student's t random variates.
+    """
+    return abs(rnoncentral_t(mu, lam, nu, size=size))
+    
+def noncentral_t_like(x, mu, lam, nu):
+    R"""noncentral_t_like(x, mu, lam, nu)
+
+    Non-central Student's T log-likelihood. Describes a normal variable
+    whose precision is gamma distributed.
+
+    .. math::
+        f(x|\mu,\lambda,\nu) = \frac{\Gamma(\frac{\nu +
+        1}{2})}{\Gamma(\frac{\nu}{2})}
+        \left(\frac{\lambda}{\pi\nu}\right)^{\frac{1}{2}}
+        \left[1+\frac{\lambda(x-\mu)^2}{\nu}\right]^{-\frac{\nu+1}{2}}
+
+    :Parameters:
+      - `x` : Input data.
+      - `mu` : Location parameter.
+      - `lambda` : Scale parameter. 
+      - `nu` : Degrees of freedom.
+
+    """
+    mu = np.asarray(mu)
+    lam = np.asarray(lam)
+    nu = np.asarray(nu)
+    return flib.nct(x, mu, lam, nu)
+
+def noncentral_t_expval(mu, lam, nu):
+    """noncentral_t_expval(mu, lam, nu)
+
+    Expectation of non-central Student's t random variables. Only defined
+    for nu>1.
+    """
+    if nu>1:
+        return mu
+    return inf
 
 # DiscreteUniform--------------------------------------------------
 @randomwrap
