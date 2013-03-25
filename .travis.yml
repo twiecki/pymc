@@ -12,6 +12,7 @@ install:
   - pip install numdifftools
   - pip install Cython
   - pip install scikits.sparse
+  - pip install patsy
   - python setup.py build_ext --inplace
 script: 
   - nosetests -s tests/
