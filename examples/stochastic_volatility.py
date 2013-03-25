@@ -10,9 +10,16 @@ from pymc.distributions.timeseries import *
 from scipy.sparse import csc_matrix
 from  scipy import optimize
 
+import matplotlib.pyplot as plt
+
 # <markdowncell>
 
-# Asset prices have time-varying volatility (variance of day over day `returns`). In some periods, returns are highly vaiable, and in others very stable. Stochastic volatility models model this with a latent volatility variable, modeled as a stochastic process. The following model is similar to the one described in the No-U-Turn Sampler paper, Hoffman (2011) p21.
+# Asset prices have time-varying volatility (variance of day over day
+#`returns`). In some periods, returns are highly vaiable, and in
+# others very stable. Stochastic volatility models model this with a
+# latent volatility variable, modeled as a stochastic process. The
+# following model is similar to the one described in the No-U-Turn
+# Sampler paper, Hoffman (2011) p21.
 #
 # $$ \sigma \sim Exponential(50) $$
 #
@@ -55,9 +62,12 @@ Data(returns, T(nu, lam = exp(-2*s)))
 
 # <markdowncell>
 
-# Fit Model
-# ------------
-# To get a decent scale for the hamiltonaian sampler, we find the hessian at a point. However, the 2nd derivatives for the degrees of freedom are negative and thus not very informative, so we make an educated guess. The interactions between `log_sigma`/`nu` and `s` are also not very useful, so we set them to zero.
+# Fit Model ------------ To get a decent scale for the hamiltonaian
+# sampler, we find the hessian at a point. However, the 2nd
+# derivatives for the degrees of freedom are negative and thus not
+# very informative, so we make an educated guess. The interactions
+# between `log_sigma`/`nu` and `s` are also not very useful, so we set
+# them to zero.
 #
 # The hessian matrix is also very sparse, so we make it a sparse matrix for faster sampling.
 
